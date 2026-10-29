@@ -26,6 +26,8 @@ Real-time 3D with [three.js](https://threejs.org) r128, loaded from cdnjs with a
 | Swipe ← / → (or tap left/right half) | ← → / A D | Change lane |
 | Swipe ↑ | ↑ / W / Space | Nitro (fills with overtakes and near misses) |
 | Touch and hold | ↓ / S | Brake |
+| KLAXON button | H | Horn: cars ahead in your lane signal and move over, pedestrians run |
+| PHARES button | F | Headlight flash: same, from further away |
 | Pause button | Esc / P | Pause |
 
 ## Scoring
@@ -34,6 +36,7 @@ Real-time 3D with [three.js](https://threejs.org) r128, loaded from cdnjs with a
 - Crazy pedestrians dash across the road (some sprint, some stop mid-road to wave at you, some zigzag).
   Skim past one and they yell "NIKYEMAK!" (+100) — record your own shout under **Your voice** in the menu
   (or upload a voice memo or a phone video; only the loudest phrase of its sound is kept, as a short WAV on your device) and is replayed at a random pitch; hit one and they fly (+300, counts toward the combo).
+- Watch out for *nids d'oiseau* (potholes): hitting one jolts the car and costs speed.
 - Chain them within 2.6 s for a combo multiplier (up to ×12).
 - Best score unlocks cars: Renault 4 (free), Peugeot 206 (4,000), Renault Clio 4 (12,000), Alpine A110 (25,000).
   Tap the title five times to unlock the whole garage.

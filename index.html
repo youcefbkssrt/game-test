@@ -55,9 +55,16 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 .combo{font:400 20px/1 var(--display);color:var(--ink);background:var(--sun);padding:6px 12px 3px;border-radius:10px;text-shadow:none;transform-origin:center;animation:pop .25s ease-out}
 @keyframes pop{0%{transform:scale(1.5)}100%{transform:scale(1)}}
 .hud-r{display:flex;justify-content:flex-end;gap:8px}
+.ctl{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;justify-content:space-between;pointer-events:none}
+.sig{pointer-events:auto;width:72px;height:72px;border-radius:50%;border:2px solid rgba(246,243,236,.35);background:rgba(8,24,42,.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);touch-action:none}
+.sig svg{width:28px;height:28px;fill:var(--chalk)}
+.sig span{font-size:9.5px;font-weight:800;letter-spacing:.12em}
+.sig:active{background:var(--sun);border-color:var(--sun)}
+.sig:active svg{fill:var(--ink)}
+.sig:active span{color:var(--ink)}
 .icon{pointer-events:auto;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:rgba(8,24,42,.45);display:grid;place-items:center;padding:0}
 .icon svg{width:18px;height:18px;fill:var(--chalk)}
-#hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);text-align:center;pointer-events:none;
+#hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 104px);text-align:center;pointer-events:none;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   font-weight:700;font-size:15px;letter-spacing:.02em;text-shadow:0 2px 6px rgba(0,0,0,.6);animation:breathe 1.6s ease-in-out infinite}
 @keyframes breathe{50%{opacity:.55}}
@@ -104,6 +111,7 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 .play:disabled{filter:grayscale(.8) brightness(.7)}
 .howto{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;font-size:11.5px;line-height:1.25;opacity:.92}
 .howto div{display:flex;flex-direction:column;gap:2px;padding:6px 4px;border-radius:12px;background:rgba(246,243,236,.06)}
+.howto .wide{grid-column:1/-1;flex-direction:row;justify-content:center;gap:8px;align-items:baseline}
 .howto b{font:400 17px/1 var(--display);color:var(--sun);letter-spacing:.02em}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px}
 .row .best b{font:400 20px/1 var(--display);color:var(--sun);margin-left:6px}
@@ -168,10 +176,14 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
     <div class="combo" id="hCombo" hidden></div>
   </div>
   <div class="hud-r">
+    <div class="ctl">
+      <button class="sig" id="hornBtn" aria-label="Klaxon"><svg viewBox="0 0 24 24"><path d="M3 10v4h3l5 4V6L6 10H3zm11.5-3.5 1.4-1.4A9 9 0 0 1 18.5 12a9 9 0 0 1-2.6 6.9l-1.4-1.4A7 7 0 0 0 16.5 12a7 7 0 0 0-2-5.5zm-2.1 2.1 1.4-1.4A6 6 0 0 1 15.5 12a6 6 0 0 1-1.7 4.2l-1.4-1.4A4 4 0 0 0 13.5 12a4 4 0 0 0-1.1-3.4z"/></svg><span>KLAXON</span></button>
+      <button class="sig" id="flashBtn" aria-label="Appel de phares"><svg viewBox="0 0 24 24"><path d="M9 5c-3.9 0-6 3.1-6 7s2.1 7 6 7c1.7 0 3-.6 3-1V6c0-.4-1.3-1-3-1zm5 1h7v2h-7zm0 5h7v2h-7zm0 5h7v2h-7z"/></svg><span>PHARES</span></button>
+    </div>
     <button class="icon" id="pauseBtn" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" rx="1.5"/><rect x="14" y="4" width="5" height="16" rx="1.5"/></svg></button>
   </div>
 </div>
-<div id="hint" hidden>Swipe ← → to weave · Swipe ↑ nitro · Hold to brake</div>
+<div id="hint" hidden>Swipe ← → to weave · Swipe ↑ nitro · Hold to brake · Klaxon &amp; phares make cars move over</div>
 <div id="count" hidden></div>
 
 <div id="menu" class="screen">
@@ -204,6 +216,7 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
       <div><b>← →</b>Swipe to change lane</div>
       <div><b>↑</b>Swipe for nitro</div>
       <div><b>HOLD</b>Touch &amp; hold to brake</div>
+      <div class="wide"><b>KLAXON · PHARES</b>Cars ahead move over · watch out for nids d’oiseau</div>
     </div>
     <div class="row">
       <div class="best">Best<b id="menuBest">0</b></div>
@@ -867,6 +880,44 @@ function placeFurniture() {
   for (let w = 0; w < 2; w++) { for (let i = used[w]; i < 50; i++) setInst(palms[w], i, 0, -50, 0, 0, .001); palms[w].instanceMatrix.needsUpdate = true; }
 }
 
+
+// ---------- nids d'oiseau: potholes that jolt the car and scrub off speed
+const POT_STEP = 40, NPOT = Math.ceil(VIEW / POT_STEP) + 3;
+function potAt(k) {
+  if (k < 8 || hash(k * 17 + 3) > .4) return null;
+  const lane = Math.floor(hash(k * 17 + 5) * LANES);
+  return { k, x: LX(lane) + (hash(k * 17 + 7) - .5) * 1.1, z: k * POT_STEP + hash(k * 17 + 9) * 30, r: .8 + hash(k * 17 + 11) * .5, rot: hash(k * 17 + 13) * 6.28, v: k % 2 };
+}
+function buildPothole(seed) {
+  const gb = new GB(), r = rng(seed), n = 12, rim = [], inner = [], ref = [0, -5, 0], cen = [0, .016, 0];
+  for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, rr = 1 + (r() - .5) * .5, ri = rr * (.55 + r() * .15); rim.push([Math.cos(a) * rr, .012, Math.sin(a) * rr * .8]); inner.push([Math.cos(a) * ri, .015, Math.sin(a) * ri * .8]); }
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n, g = .3 + r() * .08; gb.quad(rim[i], rim[j], inner[j], inner[i], [g, g, g * 1.02], ref); gb.tri(cen, inner[i], inner[j], [.1 + r() * .03, .1, .11], ref); }
+  for (let i = 0; i < 6; i++) { const a = r() * 6.28, d = 1.1 + r() * .5; gb.box(Math.cos(a) * d, .02, Math.sin(a) * d * .8, .12 + r() * .1, .04, .1 + r() * .1, [.36, .36, .37], 0, r() * 3); }
+  return gb.geo();
+}
+const potMat = lam({ vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+const potMeshes = [buildPothole(3), buildPothole(8)].map(g => { const m = new T.InstancedMesh(g, potMat, NPOT); m.frustumCulled = false; scene.add(m); return m; });
+function placePotholes() {
+  const k0 = Math.floor(player.z / POT_STEP) - 1, used = [0, 0];
+  for (let k = k0; k < k0 + NPOT; k++) { const p = potAt(k); if (!p) continue; const m = potMeshes[p.v]; Q.setFromAxisAngle(UP, p.rot); V3.set(p.x, 0, -p.z); S3.set(p.r, 1, p.r); M4.compose(V3, Q, S3); m.setMatrixAt(used[p.v]++, M4); }
+  potMeshes.forEach((m, v) => { for (let i = used[v]; i < NPOT; i++) setInst(m, i, 0, -50, 0, 0, .001); m.instanceMatrix.needsUpdate = true; });
+}
+const potHit = new Set();
+function checkPotholes() {
+  const k0 = Math.floor(player.z / POT_STEP) - 1;
+  for (const k of potHit) if (k < k0 - 2) potHit.delete(k);
+  for (let k = k0; k <= k0 + 2; k++) {
+    const p = potAt(k); if (!p || potHit.has(k)) continue;
+    const dz = p.z - player.z;
+    if (dz > 0 && dz < player.len && Math.abs(p.x - player.x) < player.w / 2 + p.r * .45) {
+      potHit.add(k); player.bump = 1; player.v *= .82; shake = Math.max(shake, 11); Snd.clunk(); buzz([35, 25, 35]);
+      const s = toScreen(player.x, 1.8, player.z + player.len);
+      pops.push({ text: 'NID D’OISEAU!', sub: ['Les amortisseurs…', 'Aïe le carter!', 'Merci l’APC!', 'Allô la mairie?'][Math.floor(Math.random() * 4)], x: clamp(s.x, 90, W - 90), y: clamp(s.y, H * .3, H * .6), t: 0, col: '#ffb547', big: true });
+      for (let i = 0; i < 14; i++) parts.push({ x: s.x + (Math.random() - .5) * 60, y: s.y + 60, vx: (Math.random() - .5) * 140, vy: -30 - Math.random() * 90, life: 0, max: .8 + Math.random() * .6, k: 1, r: 6 + Math.random() * 8 });
+    }
+  }
+}
+
 // ---------- overhead signs, speed signs and fishing boats
 const metalMat = lam({ color: 0x8d969c });
 const gantries = [0, 1].map(() => {
@@ -1118,7 +1169,7 @@ function spawnCar(z) {
     const lane = lanes[Math.floor(Math.random() * lanes.length)];
     if (!laneFree(lane, z - 26, z + s.len + 26) || wouldWall(z, lane)) continue;
     const base = [24.5, 21.5, 18.5, 16][lane] * (heavy ? .9 : 1) * (.94 + Math.random() * .12), ci = Math.floor(Math.random() * s.colors.length);
-    cars.push({ model: id, spec: s, ci, z, lane, to: lane, chg: 0, blink: 0, x: LX(lane), v: base, base, len: s.len, w: s.w, braking: false, passed: false, minDx: 99, rot: 0, spin: 0, cool: 3 + Math.random() * 4, hit: false, hazard: false, obj: carObj(id, ci), yaw: 0 });
+    cars.push({ yieldT: 0, chgDur: 0, thanked: false, model: id, spec: s, ci, z, lane, to: lane, chg: 0, blink: 0, x: LX(lane), v: base, base, len: s.len, w: s.w, braking: false, passed: false, minDx: 99, rot: 0, spin: 0, cool: 3 + Math.random() * 4, hit: false, hazard: false, obj: carObj(id, ci), yaw: 0 });
     return true;
   }
   return false;
@@ -1131,6 +1182,7 @@ function updateTraffic(dt) {
   for (const c of cars) {
     if (c.hit) { c.v = Math.max(0, c.v - 14 * dt); c.z += c.v * dt; c.rot += c.spin * dt; c.spin *= Math.pow(.2, dt); continue; }
     c.cool -= dt;
+    if (c.yieldT > 0) { c.yieldT -= dt; if (c.yieldT <= 0 && c.chg === 0) yieldLane(c); }
     const ahead = c.z - player.z;
     if (live && c.chg === 0 && c.blink <= 0 && c.cool <= 0 && ahead > 60 && ahead < 230 && Math.random() < (.03 + .16 * d) * dt) {
       const heavy = c.spec.kind === 'bus' || c.spec.kind === 'truck';
@@ -1140,7 +1192,7 @@ function updateTraffic(dt) {
     }
     if (c.blink > 0) { c.blink -= dt; if (c.blink <= 0) { if (laneFree(c.to, c.z - 8, c.z + c.len + 10, c)) c.chg = .001; else c.to = c.lane; } }
     const px = c.x;
-    if (c.chg > 0) { c.chg += dt / 1.5; if (c.chg >= 1) { c.lane = c.to; c.chg = 0; c.cool = 3 + Math.random() * 3; } }
+    if (c.chg > 0) { c.chg += dt / (c.chgDur || 1.5); if (c.chg >= 1) { c.lane = c.to; c.chg = 0; c.chgDur = 0; c.cool = 3 + Math.random() * 3; } }
     c.x = c.chg > 0 ? lerp(LX(c.lane), LX(c.to), smooth(c.chg)) : LX(c.lane);
     c.yaw = dt > 0 ? -Math.atan2((c.x - px) / dt, Math.max(4, c.v)) : c.yaw;
     let gap = 1e9, lead = null; const m = laneMask(c);
@@ -1195,7 +1247,7 @@ function startRun() {
   for (let z = player.z + 135; z < player.z + 470; z += 24 + Math.random() * 26) spawnCar(z);
   setPlayerCar();
   Object.assign(player, { lane: 1, x: LX(1), vx: 0, v: 22, tilt: 0, rot: 0, spin: 0, crashed: false, braking: false });
-  clearPeds(); pedHits = 0; pedInsults = 0;
+  clearPeds(); pedHits = 0; pedInsults = 0; potHit.clear(); player.bump = 0;
   score = 0; runDist = 0; topSpeed = 0; nearMisses = 0; combo = 0; nitro = .35; nitroOn = false; killer = null;
   todBase = .17; tod = todBase; timeScale = 1; state = 'count'; stateT = 0; hintT = 0;
   setCount('3'); requestWake();
@@ -1228,6 +1280,37 @@ function toMenu() {
 }
 function pauseGame() { if (state !== 'play' && state !== 'count') return; state = 'pause'; show('pause'); Snd.quiet(); }
 function resumeGame() { if (state !== 'pause') return; hide('pause'); state = stateT > 3 ? 'play' : 'count'; last = performance.now(); }
+
+
+// ============================================================ horn and headlight flash: cars ahead in your lane pull over
+let hornCd = 0, flashCd = 0, flashT = 0;
+function signal(kind) {
+  if (state !== 'play' && state !== 'count') return;
+  if (kind === 'horn') { if (hornCd > 0) return; hornCd = .35; Snd.honk(); }
+  else { if (flashCd > 0) return; flashCd = .9; flashT = .56; Snd.tick(); }
+  buzz(12);
+  const range = kind === 'horn' ? 85 : 125;
+  for (const c of cars) {
+    if (c.hit || c.chg > 0 || c.yieldT > 0) continue;
+    const d = c.z - player.z; if (d < 1 || d > range || Math.abs(c.x - player.x) > LW * .8) continue;
+    if (c.spec.kind === 'truck' && Math.random() < .55) continue; // SNVI trucks don't move for anyone
+    c.yieldT = .2 + d / range * .5 + Math.random() * .25; c.blink = 0;
+  }
+  if (kind === 'horn') for (const p of peds) {
+    const d = p.z - player.z;
+    if (d > 0 && d < 75 && (p.st === 'cross' || p.st === 'pause' || p.st === 'wait')) { if (p.st !== 'cross') { p.st = 'cross'; p.t = 0; } p.kind = 'run'; p.speed = Math.max(p.speed, 5.5); p.zigs = 9; p.paused = true; }
+  }
+}
+function yieldLane(c) {
+  const heavy = c.spec.kind === 'bus' || c.spec.kind === 'truck';
+  const opts = [c.lane - 1, c.lane + 1].filter(l => l >= (heavy ? 2 : 0) && l < LANES);
+  if (Math.random() < .5) opts.reverse();
+  const to = opts.find(l => laneFree(l, c.z - 10, c.z + c.len + 12, c));
+  if (to === undefined) return false;
+  c.to = to; c.chg = .001; c.chgDur = .8; c.cool = 4;
+  if (!c.thanked && Math.random() < .5) { c.thanked = true; const s = toScreen(c.x, 2, c.z); pops.push({ text: ['ÇA DÉGAGE!', 'SMAHLI!', 'MERCI!'][Math.floor(Math.random() * 3)], sub: '', x: clamp(s.x, 70, W - 70), y: clamp(s.y, H * .25, H * .6), t: 0, col: '#8fe3ff', big: false }); }
+  return true;
+}
 
 // ============================================================ update
 function autopilot(dt) {
@@ -1283,7 +1366,10 @@ function update(rdt) {
   } else if (state === 'menu') tod = .24 + Math.sin(realT * .05) * .02;
   updateTraffic(dt);
   updatePeds(dt);
+  hornCd -= rdt; flashCd -= rdt; flashT = Math.max(0, flashT - rdt);
   if (state === 'play') checkPasses();
+  if (state === 'play' && !player.crashed) checkPotholes();
+  player.bump = Math.max(0, (player.bump || 0) - rdt * 2.2);
   nitroFx = lerp(nitroFx, nitroOn ? 1 : 0, 1 - Math.exp(-rdt * 5));
   const seg = player.z / SEG;
   bendX = lerp(bendX, curveAt(Math.floor(seg) + 20) * 2.4e-4, 1 - Math.exp(-rdt * 1.5));
@@ -1344,6 +1430,7 @@ function placeVehicle(o, isP) {
   const g = o.obj; if (!g) return;
   g.position.set(o.x, 0, -(o.z + o.len / 2));
   g.rotation.set(0, isP ? -Math.atan2(player.vx, Math.max(6, player.v)) * .9 - (o.rot || 0) : (o.yaw || 0) - (o.rot || 0), isP ? player.tilt * .6 : 0);
+  if (isP && player.bump > 0) { g.position.y += Math.abs(Math.sin(player.bump * 13)) * .22 * player.bump; g.rotation.x = Math.sin(player.bump * 13) * .05 * player.bump; }
   g.userData.lights.material = (o.braking || o.hit || (isP && player.crashed)) ? lightMatOn : lightMat;
 }
 const AV = new T.Vector3();
@@ -1369,6 +1456,10 @@ function pushGlows() {
   };
   for (const c of cars) add(c, false);
   add(player, true);
+  if (flashT > 0 && (flashT % .28) > .12 && player.obj) { // two blinks of full beam
+    const g = player.obj, md = g.userData.md;
+    for (const sd of [-1, 1]) { AV.set(sd * md.w * .34, .7, -md.len / 2 - .1).applyMatrix4(g.matrixWorld); glowAdd(bigGlow, AV.x, AV.y, AV.z, 1, .97, .85, 1.5); }
+  }
   glowEnd(carGlow); glowEnd(bigGlow);
 }
 const headPool = new T.Mesh(poolGeo, bendify(new T.MeshBasicMaterial({ map: poolTex, transparent: true, opacity: 0, blending: T.AdditiveBlending, depthWrite: false, fog: false })));
@@ -1387,11 +1478,11 @@ function render() {
   skyline.position.set(camera.position.x, 0, camera.position.z); skyline.rotation.y = bgYaw;
   strips.position.z = -Math.floor(player.z / 12) * 12;
   sea.position.x = Math.round(camera.position.x / 20) * 20; sea.position.z = Math.round(camera.position.z / 20) * 20 - 700;
-  placeBlocks(); placeFurniture(); placeProps();
+  placeBlocks(); placeFurniture(); placeProps(); placePotholes();
   for (const c of cars) placeVehicle(c, false);
   placeVehicle(player, true);
   placePeds();
-  headPool.position.set(player.x, .04, -(player.z + player.len + 11)); headPool.scale.set(7, 1, 20); headPool.material.opacity = player.crashed ? 0 : ENV.night * .5;
+  headPool.position.set(player.x, .04, -(player.z + player.len + 11)); headPool.scale.set(7, 1, 20); headPool.material.opacity = player.crashed ? 0 : Math.max(ENV.night * .5, flashT > 0 && (flashT % .28) > .12 ? .85 : 0);
   pushGlows();
   renderer.render(scene, camera);
   drawFx();
@@ -1506,6 +1597,8 @@ const Snd = {
   whoosh(pan, near) { if (!this.ac) return; this.burst(this.ac.currentTime, near ? .45 : .3, 'bandpass', 2600, 350, near ? .5 : .25, 1.2, pan * .8); },
   thud() { if (!this.ac) return; const t = this.ac.currentTime; this.tone(t, 'sine', 160, 45, .25, .6); this.burst(t, .25, 'lowpass', 1800, 200, .5, .8); },
   voice() { if (!this.ac || !Voice.buf) return; const s = this.ac.createBufferSource(), g = this.ac.createGain(); s.buffer = Voice.buf; s.playbackRate.value = .86 + Math.random() * .4; g.gain.value = 1.15; s.connect(g); g.connect(this.sfx); s.start(); },
+  clunk() { if (!this.ac) return; const t = this.ac.currentTime; this.tone(t, 'sine', 110, 38, .3, .8); this.burst(t, .2, 'lowpass', 1400, 150, .6, .7); for (let i = 0; i < 3; i++) this.tone(t + .04 + i * .05, 'square', 300 + Math.random() * 500, 180, .08, .05); },
+  honk() { if (!this.ac) return; const ac = this.ac, t = ac.currentTime, f = ac.createBiquadFilter(), g = ac.createGain(); f.type = 'lowpass'; f.frequency.value = 2200; g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.16, t + .02); g.gain.setValueAtTime(.16, t + .32); g.gain.exponentialRampToValueAtTime(.0001, t + .42); f.connect(g); g.connect(this.sfx); for (const fr of [415, 520]) { const o = ac.createOscillator(); o.type = 'square'; o.frequency.value = fr; o.connect(f); o.start(t); o.stop(t + .45); } },
   horn() { if (!this.ac) return; const t = this.ac.currentTime + .05; for (const f of [392, 494]) this.tone(t, 'square', f, f, .32, .045); },
   tick() { if (!this.ac) return; this.burst(this.ac.currentTime, .09, 'highpass', 3000, 2000, .07, .7); },
   beep(f, d = .14) { if (!this.ac) return; this.tone(this.ac.currentTime, 'triangle', f, f, d, .25); },
@@ -1587,6 +1680,8 @@ $('playBtn').onclick = () => { if (isUnlocked(selected)) startRun(); };
 $('againBtn').onclick = () => startRun();
 $('garageBtn').onclick = () => toMenu();
 $('pauseBtn').onclick = () => pauseGame();
+$('hornBtn').onpointerdown = e => { e.preventDefault(); Snd.init(); signal('horn'); };
+$('flashBtn').onpointerdown = e => { e.preventDefault(); signal('flash'); };
 $('resumeBtn').onclick = () => resumeGame();
 $('quitBtn').onclick = () => { releaseWake(); toMenu(); };
 for (const id of ['sfxBtn', 'sfxBtn2']) $(id).onclick = () => { Snd.init(); Snd.setSfx(!Snd.sfxOn); refreshGarage(); };
@@ -1627,6 +1722,8 @@ window.addEventListener('keydown', e => {
   if (k === 'ArrowRight' || k === 'KeyD') steer(1);
   if (k === 'ArrowUp' || k === 'KeyW' || k === 'Space') fireNitro();
   if (k === 'ArrowDown' || k === 'KeyS') keyBrake = true;
+  if (k === 'KeyH') signal('horn');
+  if (k === 'KeyF') signal('flash');
 });
 window.addEventListener('keyup', e => { if (e.code === 'ArrowDown' || e.code === 'KeyS') keyBrake = false; });
 document.addEventListener('visibilitychange', () => { if (document.hidden) { pauseGame(); if (Snd.ac) Snd.ac.suspend(); } else if (Snd.ac) Snd.ac.resume(); });
@@ -1746,7 +1843,7 @@ refreshGarage();
 if (document.fonts && document.fonts.load) {
   Promise.all([document.fonts.load(`40px ${FONT_D}`), document.fonts.load(`700 40px ${FONT_B}`), document.fonts.load(`700 40px ${FONT_B}`, 'نقل')]).then(() => { for (const s of gantries) s.k = null; }).catch(() => {});
 }
-if (location.hash === '#dev') window.AR = { get state() { return state; }, get score() { return score; }, get near() { return nearMisses; }, player, cars, carGlow, lampGlow, camera, scene, renderer, glowTex, LX, carObj, peds, spawnPed, setTod(t) { todBase = t - runDist / 13000; tod = t; }, god(on) { window.AR.godMode = on; } };
+if (location.hash === '#dev') window.AR = { get state() { return state; }, get score() { return score; }, get near() { return nearMisses; }, player, cars, carGlow, lampGlow, camera, scene, renderer, glowTex, LX, carObj, peds, spawnPed, signal, potAt, potHit, steerTo(l) { player.lane = l; }, setTod(t) { todBase = t - runDist / 13000; tod = t; }, god(on) { window.AR.godMode = on; } };
 requestAnimationFrame(frame);
 })();
 </script>
