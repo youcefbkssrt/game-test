@@ -52,6 +52,11 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 .nitro i{display:block;height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,#5fd6ff,#e8fbff);transition:width .15s}
 .nitro.ready i{box-shadow:0 0 12px #8fe3ff}
 .nitro-lbl{font-size:10px;font-weight:800;letter-spacing:.18em;opacity:.8;margin-top:-3px}
+.wanted{font:400 18px/1 var(--display);color:#fff;padding:6px 12px 3px;border-radius:10px;text-shadow:none;animation:siren .5s steps(1) infinite;display:flex;gap:8px;align-items:baseline}
+.wanted b{font-weight:400;color:#ffd23a;letter-spacing:.1em}
+.wanted span{font:800 12px/1 var(--body);white-space:nowrap}
+.wanted{white-space:nowrap}
+@keyframes siren{0%{background:#2a6bff}50%{background:#e0293f}}
 .combo{font:400 20px/1 var(--display);color:var(--ink);background:var(--sun);padding:6px 12px 3px;border-radius:10px;text-shadow:none;transform-origin:center;animation:pop .25s ease-out}
 @keyframes pop{0%{transform:scale(1.5)}100%{transform:scale(1)}}
 .hud-r{display:flex;justify-content:flex-end;gap:8px}
@@ -174,6 +179,7 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
     <div class="nitro" id="hNitroBox"><i id="hNitro"></i></div>
     <div class="nitro-lbl">NITRO · SWIPE ↑</div>
     <div class="combo" id="hCombo" hidden></div>
+    <div class="wanted" id="hWanted" hidden>POLICE <b id="hWantedS">★☆☆</b> <span id="hWantedD"></span></div>
   </div>
   <div class="hud-r">
     <div class="ctl">
@@ -441,6 +447,7 @@ const MODELS = {
   truck: { name: 'SNVI truck', kind: 'truck', len: 9, w: 2.45, wheelR: .52, colors: [0x345c40, 0x404a78, 0x8c3428] },
 };
 MODELS.taxi = Object.assign({}, MODELS.p405, { name: 'Peugeot 405 taxi', taxi: true, colors: [0xf6c41a] });
+MODELS.police = Object.assign({}, MODELS.symbol, { name: 'police car', police: true, colors: [0x1d4fa0], stripe: C(0xf4f4f4) });
 { // bus: a long glasshouse with window pillars every bay
   const st = [[0, .4, 1.15, 3.0], [.006, .36, 1.2, 3.08]];
   for (let t = .02; t < .96; t += .1) { st.push([t, .36, 1.2, 3.08, 'p'], [t + .014, .36, 1.2, 3.08]); }
@@ -530,6 +537,11 @@ function buildCar(id, ci) {
   }
   if (m.split) gb.box(0, (rings[1].yr + rings[0].pts[0][1]) / 2, rings[0].z + .006, .025, rings[1].yr - .4, .02, TRIM);
   const roofY = Math.max(...m.st.map(s => s[3]));
+  if (m.police) { // DGSN light bar
+    const rz = L / 2 - .45 * L; gb.box(0, roofY + .04, rz, .9, .08, .3, TRIM);
+    for (const [sd, col, t] of [[-1, C(0x2a6bff), 5], [1, C(0xff2a2a), 6]]) { lg.box(sd * .22, roofY + .14, rz, .38, .12, .24, col); anchors.push({ x: sd * .22, y: roofY + .2, z: rz, t }); }
+    for (const sd of [-1, 1]) gb.box(sd * hw * 1.004, .62, 0, .01, .12, L * .5, C(0xf4f4f4));
+  }
   if (m.taxi) { const rz = L / 2 - .45 * L; gb.box(0, roofY + .03, rz, .6, .06, .3, TRIM); gb.box(0, roofY + .12, rz, .56, .14, .24, C(0xffd23a)); }
   if (id === 'r4' && ci === 1) {
     for (const sd of [-1, 1]) gb.box(sd * hw * .62, roofY + .06, L / 2 - .3 * L, .04, .04, L * .38, TRIM);
@@ -1075,7 +1087,7 @@ function knockPed(p, hitterV, byPlayer) {
   p.sx = 6 + Math.random() * 6; p.sz = (Math.random() - .5) * 10;
   Snd.thud();
   if (!byPlayer) return;
-  pedHits++;
+  pedHits++; addHeat();
   combo = realT - lastAward < 2.6 ? Math.min(combo + 1, 12) : 1; lastAward = realT;
   const pts = 300 * combo; score += pts; nitro = Math.min(1, nitro + .25);
   const s = toScreen(p.x, 1.4, p.z);
@@ -1138,6 +1150,95 @@ function placePeds() {
     else { u.arms[0].rotation.set(moving ? -w : 0, 0, 0); u.arms[1].rotation.set(moving ? w : 0, 0, 0); }
     u.sh.visible = p.y < 3; u.sh.position.y = .02 - p.y + (Math.abs(p.x) > RW ? .14 : 0);
   }
+}
+
+
+// ============================================================ the police: run someone over and a DGSN car comes after you
+const cops = [];
+let heat = 0, heatT = 0, copCd = 0, copsLost = 0, busted = false, copNear = 0;
+function addHeat() {
+  const first = heat === 0; heat = Math.min(3, heat + 1); heatT = 20 + heat * 6;
+  if (first) { copCd = .8; pops.push({ text: 'POLICE!', sub: 'الشرطة', x: W / 2, y: H * .38, t: 0, col: '#5aa2ff', big: true, huge: true }); }
+}
+function spawnCop() {
+  const obj = carObj('police', 0), s = MODELS.police;
+  cops.push({ obj, model: 'police', spec: s, len: s.len, w: s.w, z: player.z - 60, lane: player.lane, to: player.lane, chg: 0, x: LX(player.lane), v: player.v + 8, yaw: 0, rot: 0, spin: 0, braking: false, wreck: false, t: 0, sirenT: 0, phase: 'pass', stopT: 0 });
+}
+function clearCops() { for (const c of cops) releaseObj(c.obj); cops.length = 0; heat = 0; heatT = 0; copNear = 0; }
+function wreckCop(c, other) {
+  c.wreck = true; c.spin = (Math.random() < .5 ? -1 : 1) * (3 + Math.random() * 2); c.v *= .5;
+  if (other) { other.hit = true; other.spin = -c.spin * .5; other.v = Math.max(other.v, c.v); other.hazard = true; }
+  copsLost++; score += 1000; Snd.thud();
+  const s = toScreen(c.x, 1.5, Math.max(c.z, player.z - 2));
+  pops.push({ text: 'POLICE SEMÉE!', sub: '+1000', x: clamp(s.x, 100, W - 100), y: H * .55, t: 0, col: '#5aa2ff', big: true });
+  heat = Math.max(0, heat - 1); if (heat === 0) heatT = 0; copCd = 4;
+}
+function bustedNow(c) {
+  busted = true; player.crashed = true; player.v *= .3; killer = null;
+  state = 'crash'; stateT = 0; timeScale = .35; shake = 12; flash = .5;
+  pops.push({ text: 'ARRÊTÉ!', sub: 'Papiers, s’il vous plaît.', x: W / 2, y: H * .4, t: 0, col: '#5aa2ff', big: true, huge: true, dur: 1.6 });
+  Snd.thud(); buzz([60, 40, 60, 40, 120]);
+}
+function updateCops(dt) {
+  if (state === 'play' && heat > 0) {
+    heatT -= dt;
+    if (heatT <= 0) { // they give up
+      heat = 0; score += 800;
+      pops.push({ text: 'ÉVADÉ!', sub: '+800', x: W / 2, y: H * .4, t: 0, col: '#14a067', big: true, huge: true });
+      for (const c of cops) c.giveUp = true;
+    }
+    copCd -= dt;
+    const active = cops.filter(c => !c.wreck && !c.giveUp).length;
+    if (copCd <= 0 && active < (heat >= 2 ? 2 : 1)) { spawnCop(); copCd = 3; }
+  }
+  copNear = 0;
+  for (let i = cops.length - 1; i >= 0; i--) {
+    const c = cops[i]; c.t += dt;
+    const px = c.x;
+    if (c.wreck) { c.v = Math.max(0, c.v - 16 * dt); c.rot += c.spin * dt; c.spin *= Math.pow(.2, dt); }
+    else if (c.giveUp || state !== 'play') { c.v = Math.max(0, c.v - 8 * dt); }
+    else {
+      // overtake in a lane next to you, cut in ahead, then brake hard to box you in
+      const ahead = l => { let m = 1e9; for (const o of cars) { if (o.hit || !(laneMask(o) & (1 << l))) continue; const d = o.z - (c.z + c.len); if (d > -o.len && d < m) m = d; } return m; };
+      const lead = player.z + player.len, inFront = c.z - lead;
+      if (c.phase !== 'block' && inFront > 5) c.phase = 'block';
+      if (c.phase === 'block' && inFront < -1.5) c.phase = 'pass';
+      if (c.chg === 0) {
+        let want = c.lane;
+        if (c.phase === 'block') want = ahead(player.lane) > inFront + 6 || player.lane === c.lane ? player.lane : c.lane;
+        else {
+          const side = [player.lane - 1, player.lane + 1].filter(l => l >= 0 && l < LANES).sort((p, q) => ahead(q) - ahead(p));
+          if (c.lane === player.lane || ahead(c.lane) < 22) want = side.find(l => ahead(l) > 18) ?? c.lane;
+        }
+        if (want !== c.lane) { const step = c.lane + Math.sign(want - c.lane); if (ahead(step) > 10) { c.to = step; c.chg = .001; } }
+      } else { c.chg += dt / .5; if (c.chg >= 1) { c.lane = c.to; c.chg = 0; } }
+      c.x = c.chg > 0 ? lerp(LX(c.lane), LX(c.to), smooth(c.chg)) : LX(c.lane);
+      let target = c.phase === 'block' ? (c.lane === player.lane ? player.v - (inFront > 16 ? 2 : 7) : player.v + 3) : Math.min(66, player.v + 11);
+      target = Math.max(6, target);
+      const lo = cars.find(o => !o.hit && (laneMask(o) & (1 << c.lane)) && o.z > c.z && o.z - (c.z + c.len) < 14);
+      if (lo) target = Math.min(target, lo.v + (lo.z - (c.z + c.len) < 5 ? -3 : 1));
+      c.braking = target < c.v - 1;
+      c.v += clamp(target - c.v, -14 * dt, 10 * dt);
+      // stopping behind a police car that is boxing you in means you're caught too
+      if (c.phase === 'block' && c.lane === player.lane && inFront < 14 && player.v < 12) c.stopT = (c.stopT || 0) + dt; else c.stopT = 0;
+      if (c.stopT > 1.3) { bustedNow(c); continue; }
+      // the siren clears the way now and then
+      c.sirenT -= dt;
+      if (c.sirenT <= 0) { c.sirenT = 1.4; for (const o of cars) { const d = o.z - c.z; if (!o.hit && o.chg === 0 && !(o.yieldT > 0) && d > 8 && d < 50 && (laneMask(o) & (1 << c.lane)) && Math.random() < .45) o.yieldT = .3 + Math.random() * .4; } }
+    }
+    c.z += c.v * dt;
+    c.yaw = c.wreck ? c.yaw : (dt > 0 ? -Math.atan2((c.x - px) / dt, Math.max(4, c.v)) : 0);
+    if (!c.wreck && !player.crashed && state === 'play') {
+      const dz = c.z - player.z, dx = Math.abs(c.x - player.x);
+      if (dz > -c.len && dz < player.len && dx < (c.w + player.w) / 2 * .9) { bustedNow(c); continue; }
+      for (const o of cars) { if (o.hit) continue; if (c.z + c.len > o.z && c.z < o.z + o.len && Math.abs(c.x - o.x) < (c.w + o.w) / 2 * .85) { wreckCop(c, o); break; } }
+      const d = Math.abs((c.z + c.len / 2) - (player.z + player.len / 2)); if (d < 90) copNear = Math.max(copNear, 1 - d / 90);
+    }
+    if (c.z < player.z - 160 || c.z > player.z + 700) { releaseObj(c.obj); cops.splice(i, 1); }
+  }
+  Snd.siren(state === 'play' || state === 'crash' ? Math.max(copNear, cops.some(c => !c.wreck && !c.giveUp) ? .25 : 0) : 0);
+  if (state === 'play' && heat > 0) { const cs = cops.filter(c => !c.wreck && !c.giveUp), dz = cs.reduce((m, c) => Math.min(m, Math.abs((c.z + c.len / 2) - (player.z + player.len / 2))), 999), front = cs.some(c => c.z > player.z); setText('hWantedD', dz < 999 ? (front ? '▲ ' : '▼ ') + Math.round(dz) + ' m' : '…'); setText('hWantedS', '★'.repeat(heat) + '☆'.repeat(3 - heat)); $('hWanted').hidden = false; }
+  else $('hWanted').hidden = true;
 }
 
 // ============================================================ game state
@@ -1247,7 +1348,7 @@ function startRun() {
   for (let z = player.z + 135; z < player.z + 470; z += 24 + Math.random() * 26) spawnCar(z);
   setPlayerCar();
   Object.assign(player, { lane: 1, x: LX(1), vx: 0, v: 22, tilt: 0, rot: 0, spin: 0, crashed: false, braking: false });
-  clearPeds(); pedHits = 0; pedInsults = 0; potHit.clear(); player.bump = 0;
+  clearPeds(); clearCops(); busted = false; copsLost = 0; pedHits = 0; pedInsults = 0; potHit.clear(); player.bump = 0;
   score = 0; runDist = 0; topSpeed = 0; nearMisses = 0; combo = 0; nitro = .35; nitroOn = false; killer = null;
   todBase = .17; tod = todBase; timeScale = 1; state = 'count'; stateT = 0; hintT = 0;
   setCount('3'); requestWake();
@@ -1260,15 +1361,16 @@ function endRun() {
   $('fTop').textContent = kmh(topSpeed); $('fNear').textContent = nearMisses;
   $('fBest').textContent = best >= 10000 ? (best / 1000).toFixed(1) + 'k' : best;
   $('record').hidden = !isRecord || prevBest === 0;
+  document.querySelector('#over .ko').textContent = busted ? 'ARRÊTÉ!' : 'KHLASS!';
   const k = killer ? MODELS[killer.model] : null, nm = k ? k.name : 'the barrier';
   const lines = killer && killer.chg > 0 ? [`That ${nm} didn’t check its mirrors.`, `A ${nm} cut you off. Classic Moutonnière.`]
     : killer && killer.model === 'bus' ? ['You rear-ended an ETUSA bus. Next stop: the garage.']
     : killer && killer.model === 'taxi' ? ['You tapped a taxi. The driver is getting out…', 'A yellow taxi stopped for a fare. You didn’t.']
     : killer && killer.model === 'truck' ? ['SNVI trucks don’t move for anyone.']
     : [`You rear-ended a ${nm}.`, `Bumper to bumper with a ${nm}.`, `That ${nm} came out of nowhere.`];
-  $('koSub').textContent = lines[Math.floor(Math.random() * lines.length)];
+  $('koSub').textContent = busted ? ['Direction le commissariat de Bab El Oued.', 'The officer wants your papers. And your carte grise.', `${pedHits} pedestrian${pedHits === 1 ? '' : 's'} on your record. The judge is not amused.`][Math.floor(Math.random() * 3)] : lines[Math.floor(Math.random() * lines.length)];
   const newly = GARAGE.filter(g => !unlockAll && g.unlock > prevBest && g.unlock <= best);
-  $('pedLine').textContent = `Pedestrians flattened: ${pedHits} · Insults received: ${pedInsults}`;
+  $('pedLine').textContent = `Pedestrians flattened: ${pedHits} · Insults received: ${pedInsults} · Police lost: ${copsLost}`;
   $('unlockMsg').hidden = !newly.length; if (newly.length) $('unlockMsg').textContent = 'Unlocked: ' + newly.map(g => g.name).join(', ');
   show('over'); releaseWake();
 }
@@ -1276,7 +1378,7 @@ function toMenu() {
   state = 'menu'; timeScale = 1; hide('over'); hide('pause'); hide('hud'); hide('hint'); show('menu');
   player.crashed = false; player.spin = 0; player.rot = 0; nitroOn = false;
   for (let i = cars.length - 1; i >= 0; i--) if (cars[i].hit) removeCar(i);
-  clearPeds(); refreshGarage();
+  clearPeds(); clearCops(); refreshGarage();
 }
 function pauseGame() { if (state !== 'play' && state !== 'count') return; state = 'pause'; show('pause'); Snd.quiet(); }
 function resumeGame() { if (state !== 'pause') return; hide('pause'); state = stateT > 3 ? 'play' : 'count'; last = performance.now(); }
@@ -1366,6 +1468,7 @@ function update(rdt) {
   } else if (state === 'menu') tod = .24 + Math.sin(realT * .05) * .02;
   updateTraffic(dt);
   updatePeds(dt);
+  updateCops(dt);
   hornCd -= rdt; flashCd -= rdt; flashT = Math.max(0, flashT - rdt);
   if (state === 'play') checkPasses();
   if (state === 'play' && !player.crashed) checkPotholes();
@@ -1444,10 +1547,11 @@ function pushGlows() {
       let r = 0, gg = 0, b = 0;
       if (a.t === 0) { const k = Math.max(N * .55, brake ? 1 : 0); r = k; gg = .08 * k; b = .06 * k; }
       else if (a.t === 3) { if (!brake) continue; r = .8; gg = .05; b = .05; }
+      else if (a.t === 5 || a.t === 6) { if (o.wreck) continue; const ph = (realT * 5) % 2 < 1; if ((a.t === 5) !== ph) continue; if (a.t === 5) { r = .2; gg = .45; b = 1.6; } else { r = 1.6; gg = .15; b = .15; } }
       else { const on = o.hazard || (!isP && (o.blink > 0 || o.chg > 0) && ((a.t === 1 && o.to < o.lane) || (a.t === 2 && o.to > o.lane))); if (!on || !blinkOn) continue; r = 1; gg = .6; b = .1; }
       if (r < .02) continue;
       AV.set(a.x, a.y, a.z).applyMatrix4(g.matrixWorld);
-      glowAdd(carGlow, AV.x, AV.y, AV.z, r, gg, b, a.t === 1 || a.t === 2 ? .9 : brake ? 1.25 : 1);
+      glowAdd(carGlow, AV.x, AV.y, AV.z, r, gg, b, a.t >= 5 ? 2.4 : a.t === 1 || a.t === 2 ? .9 : brake ? 1.25 : 1);
     }
     if (isP && nitroFx > .05) {
       const md = g.userData.md, m = MODELS[car().model];
@@ -1455,6 +1559,7 @@ function pushGlows() {
     }
   };
   for (const c of cars) add(c, false);
+  for (const c of cops) add(c, false);
   add(player, true);
   if (flashT > 0 && (flashT % .28) > .12 && player.obj) { // two blinks of full beam
     const g = player.obj, md = g.userData.md;
@@ -1480,6 +1585,7 @@ function render() {
   sea.position.x = Math.round(camera.position.x / 20) * 20; sea.position.z = Math.round(camera.position.z / 20) * 20 - 700;
   placeBlocks(); placeFurniture(); placeProps(); placePotholes();
   for (const c of cars) placeVehicle(c, false);
+  for (const c of cops) placeVehicle(c, false);
   placeVehicle(player, true);
   placePeds();
   headPool.position.set(player.x, .04, -(player.z + player.len + 11)); headPool.scale.set(7, 1, 20); headPool.material.opacity = player.crashed ? 0 : Math.max(ENV.night * .5, flashT > 0 && (flashT % .28) > .12 ? .85 : 0);
@@ -1514,6 +1620,7 @@ function drawFx() {
     for (let k = 0; k < n; k++) { const ang = Math.random() * Math.PI * 2, r0 = R * (.45 + Math.random() * .5), len = 30 + Math.random() * 90 * sp; g.globalAlpha = (.08 + Math.random() * .2) * Math.min(1, sp); g.beginPath(); g.moveTo(hz.x + Math.cos(ang) * r0, hz.y + Math.sin(ang) * r0); g.lineTo(hz.x + Math.cos(ang) * (r0 + len), hz.y + Math.sin(ang) * (r0 + len)); g.stroke(); }
     g.globalAlpha = 1;
   }
+  if (copNear > .02 && state !== 'over') { const blue = (realT * 5) % 2 < 1, gr = g.createLinearGradient(0, H, 0, H * .55); gr.addColorStop(0, blue ? `rgba(40,110,255,${.5 * copNear})` : `rgba(255,40,40,${.5 * copNear})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, H * .55, W, H * .45); }
   if (nitroFx > .02) { const gr = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .3, W / 2, H / 2, Math.max(W, H) * .75); gr.addColorStop(0, 'rgba(90,200,255,0)'); gr.addColorStop(1, `rgba(90,200,255,${.28 * nitroFx})`); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
   g.drawImage(vignette, 0, 0, W, H);
   g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -1571,7 +1678,13 @@ const Snd = {
   },
   setSfx(on) { this.sfxOn = on; store.set('sfx', on); if (this.ac) this.sfx.gain.setTargetAtTime(on ? 1 : 0, this.ac.currentTime, .05); },
   setMus(on) { this.musOn = on; store.set('mus', on); if (this.ac) { this.mus.gain.setTargetAtTime(on ? .5 : 0, this.ac.currentTime, .05); this.next = this.ac.currentTime + .1; } },
-  quiet() { if (!this.ac) return; const t = this.ac.currentTime; this.eG.gain.setTargetAtTime(0, t, .05); this.wG.gain.setTargetAtTime(0, t, .05); },
+  quiet() { if (!this.ac) return; const t = this.ac.currentTime; this.eG.gain.setTargetAtTime(0, t, .05); this.wG.gain.setTargetAtTime(0, t, .05); if (this.sG) this.sG.gain.setTargetAtTime(0, t, .05); },
+  siren(level) {
+    if (!this.ac) return; const ac = this.ac, t = ac.currentTime;
+    if (!this.sO) { this.sO = ac.createOscillator(); this.sO.type = 'sawtooth'; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1900; this.sG = ac.createGain(); this.sG.gain.value = 0; this.sO.connect(f); f.connect(this.sG); this.sG.connect(this.sfx); this.sO.start(); }
+    this.sO.frequency.setTargetAtTime(720 + 480 * (.5 + .5 * Math.sin(t * Math.PI * .9)), t, .03);
+    this.sG.gain.setTargetAtTime(level * .07, t, .15);
+  },
   engine(v, max, on, boost) {
     if (!this.ac) return; const t = this.ac.currentTime, r = clamp(v / max, 0, 1.1);
     const G = [0, .14, .28, .44, .61, .8, 1.2]; let g = 0; while (g < G.length - 2 && r > G[g + 1]) g++;
@@ -1843,7 +1956,7 @@ refreshGarage();
 if (document.fonts && document.fonts.load) {
   Promise.all([document.fonts.load(`40px ${FONT_D}`), document.fonts.load(`700 40px ${FONT_B}`), document.fonts.load(`700 40px ${FONT_B}`, 'نقل')]).then(() => { for (const s of gantries) s.k = null; }).catch(() => {});
 }
-if (location.hash === '#dev') window.AR = { get state() { return state; }, get score() { return score; }, get near() { return nearMisses; }, player, cars, carGlow, lampGlow, camera, scene, renderer, glowTex, LX, carObj, peds, spawnPed, signal, potAt, potHit, steerTo(l) { player.lane = l; }, setTod(t) { todBase = t - runDist / 13000; tod = t; }, god(on) { window.AR.godMode = on; } };
+if (location.hash === '#dev') window.AR = { get state() { return state; }, get score() { return score; }, get near() { return nearMisses; }, player, cars, carGlow, lampGlow, camera, scene, renderer, glowTex, LX, carObj, peds, cops, addHeat, spawnCop, spawnPed, signal, potAt, potHit, steerTo(l) { player.lane = l; }, setTod(t) { todBase = t - runDist / 13000; tod = t; }, god(on) { window.AR.godMode = on; } };
 requestAnimationFrame(frame);
 })();
 </script>
