@@ -248,14 +248,14 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 </div>
 <div id="voice" class="screen" hidden>
   <h2 class="v-title">YOUR NIKYEMAK</h2>
-  <p class="v-sub">Record yourself shouting it. Every pedestrian you almost hit will yell it in your voice, a little higher or lower each time.</p>
+  <p class="v-sub">Record yourself shouting it. Every pedestrian you almost hit will yell it in your voice, a little higher or lower each time. You can also pick a video from your phone: only its sound is kept.</p>
   <button class="rec" id="recBtn"><span class="dot"></span><b id="recLbl">Tap to record</b><small id="recSub">Up to 3 seconds</small></button>
   <div class="v-row">
     <button class="chip" id="voicePlay" disabled>Play</button>
-    <label class="chip" for="voiceFile">Upload audio</label>
+    <label class="chip" for="voiceFile">Upload audio or video</label>
     <button class="chip" id="voiceDel" disabled>Remove</button>
   </div>
-  <input type="file" id="voiceFile" accept="audio/*" class="vh">
+  <input type="file" id="voiceFile" accept="audio/*,video/*" class="vh">
   <div class="v-status" id="voiceStatus">No recording yet. The game uses the built-in voice.</div>
   <div class="actions"><button class="ghost" id="voiceDone">Done</button></div>
 </div>
@@ -1644,31 +1644,58 @@ async function idbSet(k, v) { try { const d = await idb(); await new Promise((re
 async function idbGet(k) { try { const d = await idb(); return await new Promise(res => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch (e) { return null; } }
 function decodeVoice(ab) {
   Snd.init(); const ac = Snd.ac; if (!ac) return Promise.reject(new Error('no audio'));
-  return new Promise((res, rej) => { const p = ac.decodeAudioData(ab.slice(0), res, rej); if (p && p.catch) p.catch(rej); }).then(buf => {
-    // trim the silence around the shout, cap it, and normalise the level
-    const d = buf.getChannelData(0), sr = buf.sampleRate; let peak = 0;
-    for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
-    if (peak < .005) throw new Error('silent');
-    const th = Math.max(.015, peak * .1); let a = 0, b = d.length - 1;
-    while (a < d.length && Math.abs(d[a]) < th) a++; while (b > a && Math.abs(d[b]) < th) b--;
-    a = Math.max(0, a - Math.floor(sr * .03)); b = Math.min(d.length, b + Math.floor(sr * .1), a + Math.floor(sr * 2.5));
-    const out = ac.createBuffer(1, Math.max(1, b - a), sr), o = out.getChannelData(0), g = .95 / peak;
-    for (let i = 0; i < o.length; i++) { let v = 0; for (let c = 0; c < buf.numberOfChannels; c++) v += buf.getChannelData(c)[a + i]; o[i] = v / buf.numberOfChannels * g; }
-    const f = Math.floor(sr * .01); for (let i = 0; i < f && i < o.length; i++) { o[i] *= i / f; o[o.length - 1 - i] *= i / f; }
-    return out;
-  });
+  return new Promise((res, rej) => { const p = ac.decodeAudioData(ab.slice(0), res, rej); if (p && p.catch) p.catch(rej); }).then(trimShout);
+}
+function trimShout(buf) { // keep the loudest phrase (the shout), at most 2.5 s, normalised
+  const ac = Snd.ac, sr = buf.sampleRate, n = buf.length, ch = buf.numberOfChannels, mono = new Float32Array(n);
+  for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / ch; }
+  const fl = Math.floor(sr * .02), nf = Math.ceil(n / fl), env = new Float32Array(nf); let pk = 0, pf = 0, peak = 0;
+  for (let f = 0; f < nf; f++) { let e = 0; for (let i = f * fl; i < Math.min(n, (f + 1) * fl); i++) { const v = Math.abs(mono[i]); e += v * v; if (v > peak) peak = v; } env[f] = Math.sqrt(e / fl); if (env[f] > pk) { pk = env[f]; pf = f; } }
+  if (peak < .005) throw new Error('silent');
+  const th = pk * .12, gap = Math.ceil(.3 / .02), maxF = Math.ceil(2.5 / .02);
+  let s0 = pf, quiet = 0; while (s0 > 0 && pf - s0 < maxF * .6) { if (env[s0 - 1] < th) { if (++quiet > gap) break; } else quiet = 0; s0--; } s0 += quiet;
+  let e0 = pf; quiet = 0; while (e0 < nf - 1 && e0 - s0 < maxF) { if (env[e0 + 1] < th) { if (++quiet > gap) break; } else quiet = 0; e0++; } e0 -= quiet;
+  const a = Math.max(0, s0 * fl - Math.floor(sr * .04)), b = Math.min(n, (e0 + 1) * fl + Math.floor(sr * .12));
+  let lp = 0; for (let i = a; i < b; i++) lp = Math.max(lp, Math.abs(mono[i]));
+  const out = ac.createBuffer(1, Math.max(1, b - a), sr), o = out.getChannelData(0), g = .95 / (lp || 1);
+  for (let i = 0; i < o.length; i++) o[i] = mono[a + i] * g;
+  const fd = Math.floor(sr * .01); for (let i = 0; i < fd && i < o.length; i++) { o[i] *= i / fd; o[o.length - 1 - i] *= i / fd; }
+  return out;
+}
+function encodeWav(buf) { // 16-bit mono WAV so only the short clip is stored, never the whole video
+  const d = buf.getChannelData(0), n = d.length, ab = new ArrayBuffer(44 + n * 2), v = new DataView(ab), sr = buf.sampleRate;
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+  return ab;
+}
+async function audioFromMedia(file) { // when the browser can't decode a video file directly, play it once and record its sound
+  Snd.init(); const ac = Snd.ac; if (!ac || !window.MediaRecorder || !ac.createMediaStreamDestination) throw new Error('media');
+  const url = URL.createObjectURL(file), v = document.createElement('video');
+  v.src = url; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
+  try {
+    await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('media')); setTimeout(() => rej(new Error('media')), 15000); });
+    const dur = Math.min(isFinite(v.duration) ? v.duration : 8, 12);
+    const src = ac.createMediaElementSource(v), dest = ac.createMediaStreamDestination(); src.connect(dest);
+    const mr = new MediaRecorder(dest.stream), chunks = []; mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(r => { mr.onstop = r; });
+    mr.start(); await v.play();
+    await new Promise(r => { v.onended = r; setTimeout(r, dur * 1000 + 300); });
+    mr.stop(); v.pause(); await stopped; src.disconnect();
+    return decodeVoice(await new Blob(chunks, { type: mr.mimeType || 'audio/webm' }).arrayBuffer());
+  } finally { URL.revokeObjectURL(url); }
 }
 function voiceStatus(t) { $('voiceStatus').textContent = t; }
 function voiceUi() { $('voicePlay').disabled = !Voice.buf; $('voiceDel').disabled = !Voice.buf && !Voice.raw; }
-async function useVoice(ab, how) {
-  try {
-    Voice.buf = await decodeVoice(ab); Voice.raw = ab;
-    const saved = await idbSet('voice', ab);
-    voiceStatus(how + (saved ? ' Saved on this device: this is your NIKYEMAK now.' : ' It will be used until you close the game.'));
-    Snd.voice();
-  } catch (e) { voiceStatus(e && e.message === 'silent' ? 'That recording was silent. Check your mic and try again.' : 'Couldn’t read that audio. Try a different file, e.g. a voice memo (m4a, mp3, wav).'); }
-  voiceUi();
+async function setVoice(buf, how) {
+  Voice.buf = buf; Voice.raw = encodeWav(buf);
+  const saved = await idbSet('voice', Voice.raw);
+  voiceStatus(how + (saved ? ' Saved on this device: this is your NIKYEMAK now.' : ' It will be used until you close the game.'));
+  Snd.voice(); voiceUi();
 }
+const voiceFail = e => voiceStatus(e && e.message === 'silent' ? 'That clip was silent. Check the sound and try again.' : 'Couldn’t get the sound out of that file. Try another video or a voice memo.');
+async function useVoice(ab, how) { try { await setVoice(await decodeVoice(ab), how); } catch (e) { voiceFail(e); voiceUi(); } }
 function stopRec() { if (Voice.rec && Voice.rec.state === 'recording') Voice.rec.stop(); clearTimeout(Voice.timer); }
 async function toggleRec() {
   Snd.init();
@@ -1691,7 +1718,16 @@ $('voiceDone').onclick = () => { stopRec(); hide('voice'); };
 $('recBtn').onclick = () => toggleRec();
 $('voicePlay').onclick = () => { Snd.init(); Snd.voice(); };
 $('voiceDel').onclick = async () => { Voice.buf = null; Voice.raw = null; await idbSet('voice', null); voiceStatus('Removed. The game is back to the built-in voice.'); voiceUi(); };
-$('voiceFile').onchange = async e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; voiceStatus('Loading ' + f.name + '…'); await useVoice(await f.arrayBuffer(), 'Loaded.'); };
+$('voiceFile').onchange = async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+  Snd.init(); const isVideo = /^video\//.test(f.type) || /\.(mov|mp4|m4v|webm)$/i.test(f.name), how = isVideo ? 'Took the sound from your video.' : 'Loaded.';
+  voiceStatus(isVideo ? 'Taking the sound out of your video…' : 'Loading ' + f.name + '…');
+  let buf = null;
+  if (f.size < 80e6) { try { buf = await decodeVoice(await f.arrayBuffer()); } catch (err) { if (err && err.message === 'silent') { voiceFail(err); return; } } }
+  if (!buf && isVideo) { voiceStatus('Listening to your video… this takes as long as the clip (12 s max).'); try { buf = await audioFromMedia(f); } catch (err) { voiceFail(err); voiceUi(); return; } }
+  if (!buf) { voiceFail(); voiceUi(); return; }
+  await setVoice(buf, how);
+};
 idbGet('voice').then(ab => { if (ab && !Voice.raw) { Voice.raw = ab; if (Snd.ac) decodeVoice(ab).then(b => { Voice.buf = b; }).catch(() => {}); } });
 
 // ============================================================ boot
