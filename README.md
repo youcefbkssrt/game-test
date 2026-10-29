@@ -5,8 +5,20 @@ yellow taxis, Clios, 2CVs, Kangoos, ETUSA buses and SNVI trucks on the Route Mou
 Casbah, Notre-Dame d'Afrique, Maqam Echahid and Djamaa El Djazair on the skyline as the day turns
 into sunset and night.
 
-**Play:** open `index.html` in any mobile or desktop browser. It is a single file with no build step.
+**Play:** open `index.html` in any mobile or desktop browser (WebGL required). There is no build step.
 To play on a phone, host it with GitHub Pages (Settings → Pages → deploy from this branch).
+
+## Graphics
+Real-time 3D with [three.js](https://threejs.org) r128, loaded from cdnjs with a local copy in
+`vendor/three.min.js` (MIT, see `vendor/three.LICENSE`) as a fallback.
+- Low-poly, flat-shaded cars lofted from each model's real proportions (length, width, sill, beltline
+  and roof heights along the body), with glasshouse, pillars, wheel arches, rims, door lines, mirrors,
+  bumpers, yellow "16" plates and model-specific tail lights.
+- A curved-world vertex bend gives the endless road its bends and crests without moving any geometry.
+- Faceted animated sea, arcaded seafront blocks with blue shutters and lit windows at night, palms,
+  double street lamps with light pools, overhead destination signs, fishing boats.
+- The Algiers skyline in 3D: the hills of Bouzaréah covered in white houses, the Casbah, Notre-Dame
+  d'Afrique, Maqam Echahid, the port cranes, Djamaa El Djazair and the snowy Djurdjura.
 
 ## Controls
 | Touch | Keyboard | Action |
@@ -23,4 +35,4 @@ To play on a phone, host it with GitHub Pages (Settings → Pages → deploy fro
 - Best score unlocks cars: Renault 4 (free), Peugeot 206 (4,000), Renault Clio 4 (12,000), Alpine A110 (25,000).
   Tap the title five times to unlock the whole garage.
 
-Everything (cars, buildings, skyline, music and engine sound) is drawn and synthesised in code.
+Everything (cars, buildings, skyline, textures, music and engine sound) is generated in code; there are no image or audio files.
