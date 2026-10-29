@@ -125,6 +125,20 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
 .grid b{font:400 22px/1 var(--display);font-variant-numeric:tabular-nums}
 .grid span{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;opacity:.7}
 .unlock{font-weight:800;color:var(--sun);text-align:center}
+#voice{justify-content:center;background:radial-gradient(ellipse at 50% 40%,rgba(13,58,99,.97),rgba(8,24,42,.99));z-index:4}
+.v-title{font:400 clamp(40px,12vw,64px)/1 var(--display);color:var(--flag);margin:0;text-align:center;transform:rotate(-2deg)}
+.v-sub{max-width:34ch;text-align:center;margin:0;opacity:.88;line-height:1.35}
+.rec{width:min(100%,300px);border:0;border-radius:22px;background:var(--flag);box-shadow:0 6px 0 #9c1626;padding:16px 16px 12px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.rec b{font:400 28px/1 var(--display)}
+.rec small{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;opacity:.9}
+.rec .dot{width:16px;height:16px;border-radius:50%;background:#fff;margin-bottom:6px}
+.rec.on{background:#fff;color:var(--flag);box-shadow:0 6px 0 #c9c4b8}
+.rec.on .dot{background:var(--flag);animation:breathe .7s ease-in-out infinite}
+.v-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.v-row .chip{cursor:pointer}
+.chip:disabled{opacity:.4}
+.v-status{font-size:13.5px;font-weight:700;text-align:center;max-width:36ch;color:var(--sun);min-height:2.6em}
+.vh{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .ped-line{font-size:13px;font-weight:700;opacity:.8;text-align:center}
 .actions{width:100%;max-width:400px;display:flex;flex-direction:column;gap:10px;margin-top:6px}
 .ghost{width:100%;border-radius:16px;border:1px solid var(--line);background:var(--glass);padding:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:13px}
@@ -196,6 +210,7 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
       <div class="toggles">
         <button class="chip" id="sfxBtn" aria-pressed="true">Sound</button>
         <button class="chip" id="musBtn" aria-pressed="true">Music</button>
+        <button class="chip" id="voiceBtn">Your voice</button>
       </div>
     </div>
   </div>
@@ -230,6 +245,19 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
     </div>
     <button class="ghost" id="quitBtn">Back to garage</button>
   </div>
+</div>
+<div id="voice" class="screen" hidden>
+  <h2 class="v-title">YOUR NIKYEMAK</h2>
+  <p class="v-sub">Record yourself shouting it. Every pedestrian you almost hit will yell it in your voice, a little higher or lower each time.</p>
+  <button class="rec" id="recBtn"><span class="dot"></span><b id="recLbl">Tap to record</b><small id="recSub">Up to 3 seconds</small></button>
+  <div class="v-row">
+    <button class="chip" id="voicePlay" disabled>Play</button>
+    <label class="chip" for="voiceFile">Upload audio</label>
+    <button class="chip" id="voiceDel" disabled>Remove</button>
+  </div>
+  <input type="file" id="voiceFile" accept="audio/*" class="vh">
+  <div class="v-status" id="voiceStatus">No recording yet. The game uses the built-in voice.</div>
+  <div class="actions"><button class="ghost" id="voiceDone">Done</button></div>
 </div>
 <div id="toast" hidden></div>
 
@@ -1036,7 +1064,8 @@ function updatePeds(dt) {
         if (p.minDx < player.w / 2 + 1.7 && Math.abs(p.x) < RW + .6) {
           pedInsults++; score += 100;
           pops.push({ bubble: true, ped: p, text: ['NIKYEMAK!', 'NIK YEMAK!!', 'NIKYEMAK!!!'][Math.floor(Math.random() * 3)], t: 0, dur: 1.5 });
-          say(['Nik yemak!', 'Nikyemak!', 'Nik yemmak!'][Math.floor(Math.random() * 3)]); Snd.horn(); buzz(15);
+          if (Voice.buf) Snd.voice(); else say(['Nik yemak!', 'Nikyemak!', 'Nik yemmak!'][Math.floor(Math.random() * 3)]);
+          Snd.horn(); buzz(15);
         }
       }
     }
@@ -1447,6 +1476,7 @@ const Snd = {
     const w = ac.createBufferSource(); w.buffer = buf; w.loop = true; const wf = ac.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 800; wf.Q.value = .5;
     this.wG = ac.createGain(); this.wG.gain.value = 0; w.connect(wf); wf.connect(this.wG); this.wG.connect(this.sfx); w.start();
     this.next = ac.currentTime + .15; this.newPhrase();
+    if (Voice.raw && !Voice.buf) decodeVoice(Voice.raw).then(b => { Voice.buf = b; }).catch(() => {});
   },
   setSfx(on) { this.sfxOn = on; store.set('sfx', on); if (this.ac) this.sfx.gain.setTargetAtTime(on ? 1 : 0, this.ac.currentTime, .05); },
   setMus(on) { this.musOn = on; store.set('mus', on); if (this.ac) { this.mus.gain.setTargetAtTime(on ? .5 : 0, this.ac.currentTime, .05); this.next = this.ac.currentTime + .1; } },
@@ -1475,6 +1505,7 @@ const Snd = {
   },
   whoosh(pan, near) { if (!this.ac) return; this.burst(this.ac.currentTime, near ? .45 : .3, 'bandpass', 2600, 350, near ? .5 : .25, 1.2, pan * .8); },
   thud() { if (!this.ac) return; const t = this.ac.currentTime; this.tone(t, 'sine', 160, 45, .25, .6); this.burst(t, .25, 'lowpass', 1800, 200, .5, .8); },
+  voice() { if (!this.ac || !Voice.buf) return; const s = this.ac.createBufferSource(), g = this.ac.createGain(); s.buffer = Voice.buf; s.playbackRate.value = .86 + Math.random() * .4; g.gain.value = 1.15; s.connect(g); g.connect(this.sfx); s.start(); },
   horn() { if (!this.ac) return; const t = this.ac.currentTime + .05; for (const f of [392, 494]) this.tone(t, 'square', f, f, .32, .045); },
   tick() { if (!this.ac) return; this.burst(this.ac.currentTime, .09, 'highpass', 3000, 2000, .07, .7); },
   beep(f, d = .14) { if (!this.ac) return; this.tone(this.ac.currentTime, 'triangle', f, f, d, .25); },
@@ -1604,6 +1635,64 @@ window.addEventListener('contextmenu', e => e.preventDefault());
 let wake = null;
 function requestWake() { try { if (navigator.wakeLock && !wake) navigator.wakeLock.request('screen').then(w => { wake = w; w.addEventListener('release', () => { wake = null; }); }).catch(() => {}); } catch (e) {} }
 function releaseWake() { try { if (wake) wake.release(); } catch (e) {} wake = null; }
+
+
+// ============================================================ the player's own recorded NIKYEMAK (kept on this device in IndexedDB)
+const Voice = { buf: null, raw: null, rec: null, timer: 0 };
+function idb() { return new Promise((res, rej) => { try { const r = indexedDB.open('algerrush', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }); }
+async function idbSet(k, v) { try { const d = await idb(); await new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'), st = t.objectStore('kv'); v === null ? st.delete(k) : st.put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); return true; } catch (e) { return false; } }
+async function idbGet(k) { try { const d = await idb(); return await new Promise(res => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch (e) { return null; } }
+function decodeVoice(ab) {
+  Snd.init(); const ac = Snd.ac; if (!ac) return Promise.reject(new Error('no audio'));
+  return new Promise((res, rej) => { const p = ac.decodeAudioData(ab.slice(0), res, rej); if (p && p.catch) p.catch(rej); }).then(buf => {
+    // trim the silence around the shout, cap it, and normalise the level
+    const d = buf.getChannelData(0), sr = buf.sampleRate; let peak = 0;
+    for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+    if (peak < .005) throw new Error('silent');
+    const th = Math.max(.015, peak * .1); let a = 0, b = d.length - 1;
+    while (a < d.length && Math.abs(d[a]) < th) a++; while (b > a && Math.abs(d[b]) < th) b--;
+    a = Math.max(0, a - Math.floor(sr * .03)); b = Math.min(d.length, b + Math.floor(sr * .1), a + Math.floor(sr * 2.5));
+    const out = ac.createBuffer(1, Math.max(1, b - a), sr), o = out.getChannelData(0), g = .95 / peak;
+    for (let i = 0; i < o.length; i++) { let v = 0; for (let c = 0; c < buf.numberOfChannels; c++) v += buf.getChannelData(c)[a + i]; o[i] = v / buf.numberOfChannels * g; }
+    const f = Math.floor(sr * .01); for (let i = 0; i < f && i < o.length; i++) { o[i] *= i / f; o[o.length - 1 - i] *= i / f; }
+    return out;
+  });
+}
+function voiceStatus(t) { $('voiceStatus').textContent = t; }
+function voiceUi() { $('voicePlay').disabled = !Voice.buf; $('voiceDel').disabled = !Voice.buf && !Voice.raw; }
+async function useVoice(ab, how) {
+  try {
+    Voice.buf = await decodeVoice(ab); Voice.raw = ab;
+    const saved = await idbSet('voice', ab);
+    voiceStatus(how + (saved ? ' Saved on this device: this is your NIKYEMAK now.' : ' It will be used until you close the game.'));
+    Snd.voice();
+  } catch (e) { voiceStatus(e && e.message === 'silent' ? 'That recording was silent. Check your mic and try again.' : 'Couldn’t read that audio. Try a different file, e.g. a voice memo (m4a, mp3, wav).'); }
+  voiceUi();
+}
+function stopRec() { if (Voice.rec && Voice.rec.state === 'recording') Voice.rec.stop(); clearTimeout(Voice.timer); }
+async function toggleRec() {
+  Snd.init();
+  if (Voice.rec && Voice.rec.state === 'recording') { stopRec(); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { voiceStatus('Recording isn’t available here. Record a voice memo on your phone and tap Upload audio.'); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
+  catch (e) { voiceStatus('The microphone isn’t allowed in this view. Record a voice memo on your phone, then tap Upload audio.'); return; }
+  const chunks = [], mr = new MediaRecorder(stream); Voice.rec = mr;
+  mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  mr.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop()); $('recBtn').classList.remove('on'); $('recLbl').textContent = 'Record again'; $('recSub').textContent = 'Up to 3 seconds';
+    const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' }); await useVoice(await blob.arrayBuffer(), 'Got it.');
+  };
+  mr.start(); $('recBtn').classList.add('on'); $('recLbl').textContent = 'Shout it now!'; $('recSub').textContent = 'Tap to stop'; voiceStatus('Recording…');
+  Voice.timer = setTimeout(stopRec, 3000);
+}
+$('voiceBtn').onclick = () => { Snd.init(); show('voice'); voiceUi(); if (Voice.buf) voiceStatus('Your recording is in use. Record or upload another to replace it.'); };
+$('voiceDone').onclick = () => { stopRec(); hide('voice'); };
+$('recBtn').onclick = () => toggleRec();
+$('voicePlay').onclick = () => { Snd.init(); Snd.voice(); };
+$('voiceDel').onclick = async () => { Voice.buf = null; Voice.raw = null; await idbSet('voice', null); voiceStatus('Removed. The game is back to the built-in voice.'); voiceUi(); };
+$('voiceFile').onchange = async e => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; voiceStatus('Loading ' + f.name + '…'); await useVoice(await f.arrayBuffer(), 'Loaded.'); };
+idbGet('voice').then(ab => { if (ab && !Voice.raw) { Voice.raw = ab; if (Snd.ac) decodeVoice(ab).then(b => { Voice.buf = b; }).catch(() => {}); } });
 
 // ============================================================ boot
 let last = performance.now();
