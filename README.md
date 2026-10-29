@@ -31,6 +31,8 @@ Real-time 3D with [three.js](https://threejs.org) r128, loaded from cdnjs with a
 ## Scoring
 - Points for every metre, worth more above 90 km/h and doubled on nitro.
 - Overtake in the next lane: +60. Near miss (squeezing past within a hair): +250.
+- Crazy pedestrians dash across the road (some sprint, some stop mid-road to wave at you, some zigzag).
+  Skim past one and they yell "NIKYEMAK!" (+100); hit one and they fly (+300, counts toward the combo).
 - Chain them within 2.6 s for a combo multiplier (up to ×12).
 - Best score unlocks cars: Renault 4 (free), Peugeot 206 (4,000), Renault Clio 4 (12,000), Alpine A110 (25,000).
   Tap the title five times to unlock the whole garage.
