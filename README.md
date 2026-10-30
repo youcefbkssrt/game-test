@@ -39,6 +39,13 @@ Real-time 3D with [three.js](https://threejs.org) r128, loaded from cdnjs with a
 - Run someone over and the police (DGSN) come after you: a blue patrol car overtakes, cuts in and brakes to box
   you in. Hit it, or stop behind it, and you are *ARRÊTÉ* (game over). Make it crash into traffic (+1000) or
   outlast the chase (+800). More pedestrians, more stars, more police cars.
+- **Ramps**: drive onto the yellow-and-black ramps to launch in slow motion, fly over traffic (+400 per car
+  jumped) and swipe in the air for a barrel roll (+600 if you land it). Traffic hops the ramps too.
+- **Dinars and nitro**: collect gold DA coins (lines, zigzags and arcs above the ramps) and blue nitro bottles.
+- **Events** every couple of kilometres: *Aïd Mabrouk* (herds of sheep cross, BÊÊÊ +150), *Sirocco*
+  (a Sahara sandstorm swallows the road), *Viva l'Algérie* (a fans' convoy with flags, horn chants and fireworks;
+  overtaking a flag car is +100).
+- Crashes shatter into flying debris.
 - Watch out for *nids d'oiseau* (potholes): hitting one jolts the car and costs speed.
 - Chain them within 2.6 s for a combo multiplier (up to ×12).
 - Best score unlocks cars: Renault 4 (free), Peugeot 206 (4,000), Renault Clio 4 (12,000), Alpine A110 (25,000).
