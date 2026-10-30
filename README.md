@@ -52,3 +52,7 @@ Real-time 3D with [three.js](https://threejs.org) r128, loaded from cdnjs with a
   Tap the title five times to unlock the whole garage.
 
 Everything (cars, buildings, skyline, textures, music and engine sound) is generated in code; there are no image or audio files.
+
+## Unity version
+`unity/AlgerRush` is a Unity project of the same game (Unity 6, Built-in or URP), for desktop and Android builds.
+Open it from Unity Hub with **Add → Add project from disk**. See [`unity/AlgerRush/README.md`](unity/AlgerRush/README.md).
